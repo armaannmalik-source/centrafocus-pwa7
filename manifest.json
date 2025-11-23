@@ -1,0 +1,17 @@
+{
+  "name": "CentraFocus — Profit Percentage Calculator",
+  "short_name": "CentraFocus",
+  "description": "Offline-ready profit percentage calculator by Team CentraFocus.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1e90ff",
+  "background_color": "#0b0d18",
+  "icons": [
+    { "src": "assets/icons/pwa-icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icons/pwa-icon-256.png", "sizes": "256x256", "type": "image/png" },
+    { "src": "assets/icons/pwa-icon-384.png", "sizes": "384x384", "type": "image/png" },
+    { "src": "assets/icons/pwa-icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

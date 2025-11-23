@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CentraFocus — Profit Percentage Calculator</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1e90ff">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js');
+    }
+  </script>
+
+  <style>
+    :root {
+      --accent-blue: #1e90ff;
+      --accent-red: #ff2d55;
+      --card-bg: rgba(8,10,18,0.6);
+      --card-border: rgba(255,255,255,0.06);
+    }
+    * { box-sizing: border-box; font-family: Inter, system-ui, Arial; margin: 0; }
+    html,body { height:100%; overflow:hidden; }
+    body {
+      background: url('assets/5162027.jpg') center/cover no-repeat fixed;
+      display:flex; align-items:center; justify-content:center;
+      color:white;
+    }
+
+    /* Tap overlay */
+    #tapOverlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,.5); z-index: 3000; }
+    .tap-btn { background: linear-gradient(90deg, var(--accent-red), #ff7b8f); border: none; color: white; font-weight: 800; padding: 16px 32px; border-radius: 999px; cursor: pointer; font-size: 18px; animation: pulse 1.6s infinite alternate; }
+    @keyframes pulse { from{transform:scale(1)} to{transform:scale(1.05)} }
+    .tap-sub { margin-top:10px; color:#ddd; font-size:13px; }
+
+    /* Intro */
+    #introWrap { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; }
+    #introLogo { width:130px; opacity:0; transform:translateY(-10px); transition:opacity .5s, transform .6s; }
+    #introText { display:flex; gap:6px; font-weight:900; font-size:36px; opacity:0; }
+
+    /* Card */
+    .card { width:100%; max-width:420px; padding:28px; border-radius:16px; background:var(--card-bg); border:1px solid var(--card-border); backdrop-filter:blur(8px); transform:scale(0.94); opacity:0; transition:opacity 1.2s ease .25s, transform 1.2s cubic-bezier(.2,.9,.3,1) .25s; position: relative; }
+    .card.show { opacity:1; transform:scale(1); box-shadow:0 0 50px rgba(30,50,120,.5); }
+
+    .top { display:flex; align-items:center; justify-content:center; position:relative; margin-bottom:10px; }
+    #gear { position:absolute; right:10px; top:0; width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:8px; background:rgba(255,255,255,0.08); cursor:pointer; }
+    #gear svg { width:20px; height:20px; stroke:#fff; }
+
+    h1 { font-size:18px; font-weight:800; color:#fff; }
+
+    label { display:block; margin-top:12px; font-weight:800; color:var(--accent-red); }
+    input { width:100%; padding:12px; margin-top:6px; border-radius:8px; border:none; text-align:center; font-size:15px; }
+    .btn-primary { margin-top:16px; width:100%; padding:12px; border-radius:10px; border:none; cursor:pointer; background:linear-gradient(90deg,var(--accent-blue),#007bff); color:white; font-weight:800; font-size:15px; }
+    .btn-save { margin-top:10px; width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); background:transparent; color:white; font-weight:800; cursor:pointer; }
+    #result { margin-top:14px; font-weight:800; color:#fff; min-height:22px; text-align:center; }
+
+    footer { position:fixed; bottom:14px; left:0; right:0; text-align:center; color:rgba(255,255,255,0.85); font-size:13px; }
+
+    /* Drawer */
+    .drawer { position:fixed; top:0; left:0; bottom:0; width:300px; transform:translateX(-100%); background:rgba(10,10,25,.95); color:white; padding:20px; z-index:2500; transition:transform .3s ease; }
+    .drawer.open { transform:translateX(0); box-shadow:0 0 40px rgba(30,50,120,.6); }
+    .drawer h3 { margin-bottom:12px; }
+    #closeDrawer { position:absolute; right:16px; top:16px; background:#ff4d4d; border:none; color:white; font-size:16px; font-weight:bold; border-radius:50%; width:28px; height:28px; cursor:pointer; }
+    .history { max-height:60vh; overflow:auto; background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; }
+    .hist-item { padding:8px 6px; border-bottom:1px solid rgba(255,255,255,0.05); font-size:14px; }
+    .btn-clear { margin-top:12px; background:#ff4d4d; border:none; padding:10px; width:100%; border-radius:8px; color:white; font-weight:800; cursor:pointer; }
+
+    /* Contact section */
+    .contact{ margin-top:18px; }
+    .contact .contact-value{ margin-top:6px; background:rgba(255,255,255,0.08); padding:10px; border-radius:8px; text-align:center; }
+    .contact a{ color:#fff; text-decoration:underline; word-break:break-all; }
+    .contact .contact-row{ display:flex; align-items:center; justify-content:flex-start; gap:6px; }
+    .contact .contact-row span{ font-weight:800; color:var(--accent-red); }
+    .contact .contact-row img{ width:24px; height:24px; border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,0.25); margin-left:4px; }
+
+    /* iOS hint */
+    .ios-hint{ display:none; margin-top:8px; font-size:12px; color:#ddd; text-align:center; opacity:0.9; }
+  </style>
+</head>
+<body>
+
+  <!-- Drawer -->
+  <div id="drawer" class="drawer">
+    <button id="closeDrawer">✕</button>
+    <h3>History</h3>
+    <div id="historyBox" class="history"></div>
+
+    <!-- Read Aloud toggle -->
+    <button id="toggleTtsBtn" class="btn-toggle btn-primary" style="margin-top:12px;">Turn Read Aloud ON</button>
+
+    <button id="clearAllBtn" class="btn-clear">Clear All</button>
+  </div>
+
+  <!-- Tap to start -->
+  <div id="tapOverlay">
+    <button class="tap-btn" id="tapBtn">Tap to Start</button>
+    <div class="tap-sub">Tap to enable sound & start the intro</div>
+  </div>
+
+  <!-- Intro -->
+  <div id="introWrap">
+    <img id="introLogo" src="assets/logo.png" alt="CentraFocus logo">
+    <div id="introText"></div>
+  </div>
+
+  <!-- Calculator -->
+  <div class="card" id="card">
+    <!-- Team title -->
+    <h2 style="text-align:center; font-weight:900; font-size:22px; margin-bottom:10px;">
+      <span style="color:#ff2d55;">TEAM</span> <span style="color:#1e90ff;">CENTRAFOCUS</span>
+    </h2>
+
+    <div class="top">
+      <h1>Profit Percentage Calculator</h1>
+      <div id="gear" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7z" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06A2 2 0 0 1 2.3 16.9l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09c.7 0 1.27-.4 1.51-1a1.65 1.65 0 0 0-.33-1.82L4.3 3.3A2 2 0 0 1 7.13.47l.06.06a1.65 1.65 0 0 0 1.82.33c.46-.2.93-.3 1.4-.3H11a2 2 0 0 1 4 0h.09c.47 0 .94.1 1.4.3.7.3 1.3.98 1.3 1.8v.09c.45.2.82.57 1.02 1.02.2.46.3.93.3 1.4v.06c.03.48-.03.96-.18 1.42z" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <label for="amountInput">Amount</label>
+    <input id="amountInput" type="number" placeholder="Enter Total Amount">
+
+    <label for="profitInput">Profit</label>
+    <input id="profitInput" type="number" placeholder="Enter Profit Value">
+
+    <button id="calcBtn" class="btn-primary">Calculate</button>
+    <button id="saveBtn" class="btn-save">Save</button>
+
+    <!-- Custom PWA install button + iOS hint -->
+    <button id="installBtn" class="btn-primary" style="display:none;margin-top:12px;">Install App</button>
+    <div id="iosHint" class="ios-hint">On iPhone: Share → Add to Home Screen</div>
+
+    <div id="result" aria-live="polite"></div>
+
+    <!-- Contacts -->
+    <div class="contact">
+      <label class="contact-row">
+        <span>Phone/Whatsapp Number</span>
+        <img src="assets/icons/phone.png" alt="phone icon">
+      </label>
+      <div class="contact-value"><a href="tel:+918968954264">+918968954264</a></div>
+
+      <label class="contact-row">
+        <span>TEAM CENTRAFOCUS Whatsapp Group</span>
+        <img src="assets/icons/whatsapp.png" alt="whatsapp icon">
+      </label>
+      <div class="contact-value">
+        <a href="https://chat.whatsapp.com/GEvO4VJDhqXHjQucAZU0OT?mode=hqrt2" target="_blank" rel="noopener">
+          https://chat.whatsapp.com/GEvO4VJDhqXHjQucAZU0OT?mode=hqrt2
+        </a>
+      </div>
+
+      <label class="contact-row">
+        <span>TEAM CENTRAFOCUS Telegram Group</span>
+        <img src="assets/icons/telegram.png" alt="telegram icon">
+      </label>
+      <div class="contact-value">
+        <a href="https://t.me/teamcentrafocus" target="_blank" rel="noopener">https://t.me/teamcentrafocus</a>
+      </div>
+    </div>
+  </div>
+
+  <footer>© 2025 CentraFocus</footer>
+
+  <script>
+    // ----- Intro animation -----
+    const tapOverlay=document.getElementById('tapOverlay');
+    const tapBtn=document.getElementById('tapBtn');
+    const introWrap=document.getElementById('introWrap');
+    const introLogo=document.getElementById('introLogo');
+    const introText=document.getElementById('introText');
+    const card=document.getElementById('card');
+    const audio=new Audio('assets/centrafocus.mp3');
+    const TEXT='CENTRAFOCUS';
+    TEXT.split('').forEach((ch,i)=>{
+      const span=document.createElement('span');
+      span.textContent=ch;
+      span.style.color=i<6?'#1e90ff':'#ff2d55';
+      span.style.opacity=0;
+      span.style.transform='translateY(12px)';
+      span.style.transition=`opacity .15s ease ${i*0.1}s, transform .4s ease ${i*0.1}s`;
+      introText.appendChild(span);
+    });
+    tapBtn.addEventListener('click',()=>{
+      tapOverlay.style.display='none';
+      audio.play().catch(()=>{});
+      introLogo.style.opacity=1;
+      introLogo.style.transform='translateY(0)';
+      introText.style.opacity=1;
+      [...introText.children].forEach((s,i)=>setTimeout(()=>{s.style.opacity=1;s.style.transform='translateY(0)'},i*100));
+      setTimeout(()=>{
+        introWrap.style.transition='opacity .6s';
+        introWrap.style.opacity=0;
+        setTimeout(()=>{introWrap.style.display='none';card.classList.add('show');},600);
+      },3000);
+    });
+
+    // ----- Calculator -----
+    const amountInput=document.getElementById('amountInput');
+    const profitInput=document.getElementById('profitInput');
+    const result=document.getElementById('result');
+    const calcBtn=document.getElementById('calcBtn');
+
+    // Read-aloud toggle (persisted)
+    const READ_ALOUD_KEY = 'centrafocus_readaloud_v1';
+    function getReadAloud(){ try { return JSON.parse(localStorage.getItem(READ_ALOUD_KEY) ?? 'true'); } catch { return true; } }
+    function setReadAloud(val){ localStorage.setItem(READ_ALOUD_KEY, JSON.stringify(!!val)); }
+
+    function speakResult(percent){
+      if (!getReadAloud()) return;
+      const utter=new SpeechSynthesisUtterance(`Your profit percentage is ${percent} percent`);
+      utter.pitch=0.8; utter.rate=0.9; utter.volume=1;
+      const voices=speechSynthesis.getVoices();
+      if (voices && voices.length){
+        utter.voice=voices.find(v=>v.name && v.name.toLowerCase().includes('male'))||voices[0];
+      }
+      if (!voices || !voices.length){
+        window.speechSynthesis.onvoiceschanged = () => {
+          const vs = speechSynthesis.getVoices();
+          utter.voice = vs.find(v=>v.name && v.name.toLowerCase().includes('male')) || vs[0];
+          speechSynthesis.speak(utter);
+        };
+      } else {
+        speechSynthesis.speak(utter);
+      }
+    }
+
+    calcBtn.addEventListener('click',()=>{
+      const a=parseFloat(amountInput.value),p=parseFloat(profitInput.value);
+      if(isNaN(a)||isNaN(p)||a<=0){result.textContent='Enter valid numbers.';result.style.color='#ff8080';return;}
+      const percent=((p/a)*100).toFixed(2);
+      result.textContent=`Profit Percentage: ${percent}%`;
+      result.style.color='#fff';
+      speakResult(percent);
+      return percent;
+    });
+
+    // ----- History -----
+    const STORAGE_KEY='centrafocus_history_v2';
+    function loadHistory(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')}catch{return[]}}
+    function saveHistory(arr){localStorage.setItem(STORAGE_KEY,JSON.stringify(arr))}
+    function updateHistory(){
+      const h=loadHistory().reverse();
+      const box=document.getElementById('historyBox');
+      box.innerHTML='';
+      if(!h.length)return box.innerHTML='<div style="opacity:.7">No saved entries.</div>';
+      h.forEach(x=>{
+        const d=document.createElement('div');
+        d.className='hist-item';
+        d.innerHTML=`<b>${x.percent}%</b> • ${x.day}, ${x.month} ${x.date}<br><small>Amt ${x.amount} | Profit ${x.profit}</small>`;
+        box.appendChild(d);
+      });
+    }
+    document.getElementById('saveBtn').addEventListener('click',()=>{
+      const a=parseFloat(amountInput.value),p=parseFloat(profitInput.value);
+      if(isNaN(a)||isNaN(p)||a<=0)return alert('Enter valid numbers first.');
+      const percent=((p/a)*100).toFixed(2);
+      const d=new Date();
+      const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const entry={percent,amount:a,profit:p,day:days[d.getDay()],date:d.getDate(),month:months[d.getMonth()]};
+      const arr=loadHistory(); arr.push(entry); saveHistory(arr); updateHistory(); alert('Saved ✅');
+    });
+    document.getElementById('clearAllBtn').addEventListener('click',()=>{
+      if(confirm('Delete all entries?')){ localStorage.removeItem(STORAGE_KEY); updateHistory(); }
+    });
+    updateHistory();
+
+    // ----- Drawer & settings -----
+    const drawer=document.getElementById('drawer');
+    const gear=document.getElementById('gear');
+    const closeDrawer=document.getElementById('closeDrawer');
+    const toggleBtn=document.getElementById('toggleTtsBtn');
+    function refreshTtsButtonLabel(){ const on = getReadAloud(); if (toggleBtn) toggleBtn.textContent = on ? 'Turn Read Aloud OFF' : 'Turn Read Aloud ON'; }
+    gear.addEventListener('click',()=>{ drawer.classList.add('open'); updateHistory(); refreshTtsButtonLabel(); });
+    closeDrawer.addEventListener('click',()=>{ drawer.classList.remove('open'); });
+    if (toggleBtn){ toggleBtn.addEventListener('click',()=>{ setReadAloud(!getReadAloud()); refreshTtsButtonLabel(); }); }
+    refreshTtsButtonLabel();
+
+    // ----- PWA Install Button -----
+    let deferredPrompt = null;
+    const installBtn = document.getElementById('installBtn');
+    const iosHint = document.getElementById('iosHint');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      if (installBtn) installBtn.style.display = 'block';
+    });
+    installBtn?.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      installBtn.style.display = 'none';
+      deferredPrompt = null;
+    });
+    window.addEventListener('appinstalled', () => { if (installBtn) installBtn.style.display = 'none'; });
+
+    // iOS hint (no install prompt)
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    if (isIOS && !isStandalone) { iosHint.style.display = 'block'; }
+
+</script>
+
+  
+</body>
+</html>
